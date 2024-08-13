@@ -1,0 +1,16 @@
+/* src/App.css */
+.App {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+table {
+  width: 100%;
+}
+
+.remaining-balance {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 1.5em;
+}
