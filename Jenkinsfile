@@ -27,14 +27,6 @@ pipeline {
                 }
             }
         }
-
-        stage('Install Frontend Dependencies') {
-            steps {
-                dir('frontend') {
-                    sh 'npm install'
-                }
-            }
-        }
         
         stage('Run Backend Tests') {
             steps {
