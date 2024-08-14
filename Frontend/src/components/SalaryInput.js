@@ -5,10 +5,14 @@ function SalaryInput({ onSalaryChange }) {
 
   useEffect(() => {
     const fetchSalary = async () => {
-      const response = await fetch('http://localhost:5000/salary');
-      const amount = await response.json();
-      setSalary(amount);
-      onSalaryChange(amount);
+      try {
+        const response = await fetch(`http://localhost:5000/salary`);
+        const amount = await response.json();
+        setSalary(amount);
+        onSalaryChange(amount);
+      } catch (error) {
+        console.error('Error fetching salary:', error);
+      }
     };
 
     fetchSalary();
@@ -19,13 +23,17 @@ function SalaryInput({ onSalaryChange }) {
     setSalary(newSalary);
     onSalaryChange(newSalary);
 
-    await fetch('http://localhost:5000/salary', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ amount: newSalary })
-    });
+    try {
+      await fetch(`http://localhost:5000/salary`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ amount: newSalary })
+      });
+    } catch (error) {
+      console.error('Error updating salary:', error);
+    }
   };
 
   return (
