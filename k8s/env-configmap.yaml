@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: backend-env
+  name: env
+data:
+  DB_HOST: db
+  DB_NAME: expense_manager
+  DB_USER: root
+  MYSQL_DATABASE: expense_manager
