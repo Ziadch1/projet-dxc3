@@ -7,7 +7,12 @@ const client = require('prom-client');  // Add this line to import prom-client
 
 const app = express();
 app.use(bodyParser.json());
-app.use(cors());
+app.use(cors({
+  origin: '*',  // Allow from all origins for now, consider restricting this in production
+  methods: 'GET,POST',
+  allowedHeaders: 'Content-Type'
+}));
+
 
 // Prometheus metrics setup
 const collectDefaultMetrics = client.collectDefaultMetrics;
