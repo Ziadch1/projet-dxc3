@@ -13,7 +13,6 @@ app.use(cors({
   allowedHeaders: 'Content-Type'
 }));
 
-
 // Prometheus metrics setup
 const collectDefaultMetrics = client.collectDefaultMetrics;
 collectDefaultMetrics({ timeout: 5000 }); // Collect default metrics every 5 seconds
@@ -27,21 +26,45 @@ const httpRequestDurationMicroseconds = new client.Histogram({
 });
 
 // MySQL connection configuration
-const db = mysql.createConnection({
+const dbConfig = {
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME
-});
+};
 
-// Connect to the database
-db.connect((err) => {
-  if (err) {
-    console.error('Error connecting to the database:', err);
-    return;
-  }
-  console.log('Connected to MySQL database');
+// Function to connect to the database with retry logic
+function connectToDatabase(retries = 5, delay = 2000) {
+  const db = mysql.createConnection(dbConfig);
 
+  db.connect((err) => {
+    if (err) {
+      console.error('Error connecting to the database:', err);
+
+      if (retries > 0) {
+        console.log(`Retrying connection in ${delay / 1000} seconds... (${retries} retries left)`);
+        setTimeout(() => connectToDatabase(retries - 1, delay * 2), delay); // Exponential backoff
+      } else {
+        console.error('Max retries reached. Exiting.');
+        process.exit(1); // Exit the process if retries are exhausted
+      }
+    } else {
+      console.log('Connected to MySQL database');
+      initializeDatabase(db); // Call the function to initialize the database
+
+      // Listen for requests only after successful database connection
+      const PORT = process.env.PORT || 5000;
+      app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+      });
+    }
+  });
+
+  return db;
+}
+
+// Function to initialize the database (create tables)
+function initializeDatabase(db) {
   // Create tables if they do not exist
   const createExpensesTable = `
     CREATE TABLE IF NOT EXISTS expenses (
@@ -75,7 +98,7 @@ db.connect((err) => {
       console.log('Salary table created or already exists');
     }
   });
-});
+}
 
 // Middleware to track metrics for all routes
 app.use((req, res, next) => {
@@ -100,7 +123,7 @@ app.get('/expenses', (req, res) => {
 
 app.post('/expenses', (req, res) => {
   const { description, amount, date, category } = req.body;
-  
+
   if (!description || amount === undefined || !date || !category) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
@@ -127,7 +150,7 @@ app.get('/salary', (req, res) => {
 
 app.post('/salary', (req, res) => {
   const { amount } = req.body;
-  
+
   if (amount === null || amount === undefined || isNaN(amount)) {
     return res.status(400).json({ error: 'Invalid amount provided' });
   }
@@ -153,11 +176,7 @@ app.get('/metrics', async (req, res) => {
   res.end(await client.register.metrics());
 });
 
-if (process.env.NODE_ENV !== 'test') {
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-}
+// Start the connection process
+let db = connectToDatabase();
 
 module.exports = app;
