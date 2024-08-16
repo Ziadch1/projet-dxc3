@@ -1,6 +1,6 @@
 pipeline {
     agent any
-    
+
     environment {
         BACKEND_IMAGE = "yassird/expense-manager-backend"  // Name of the backend image
         FRONTEND_IMAGE = "yassird/expense-manager-frontend"  // Name of the frontend image
@@ -10,7 +10,7 @@ pipeline {
         DB_NAME = 'expense_manager'
         NODE_ENV = 'test'
     }
-    
+
     stages {
         stage('Docker Login') {
             steps {
@@ -27,7 +27,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Run Backend Tests') {
             steps {
                 dir('backend') {
@@ -35,7 +35,22 @@ pipeline {
                 }
             }
         }
-        
+
+        stage('Semgrep Security Analysis') {
+            steps {
+                // Install Semgrep
+                sh 'pip install semgrep'
+                
+                // Run Semgrep in the backend and frontend directories
+                dir('backend') {
+                    sh 'semgrep --config auto .'
+                }
+                dir('frontend') {
+                    sh 'semgrep --config auto .'
+                }
+            }
+        }
+
         stage('Build Backend Docker Image') {
             steps {
                 dir('backend') {
@@ -43,7 +58,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Build Frontend Docker Image') {
             steps {
                 dir('frontend') {
@@ -51,7 +66,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Push Docker Images') {
             steps {
                 // Push backend image
@@ -62,7 +77,7 @@ pipeline {
             }
         }
     }
-    
+
     post {
         always {
             // Clean up Docker environment to avoid disk space issues
