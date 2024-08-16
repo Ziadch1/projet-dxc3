@@ -9,6 +9,7 @@ pipeline {
         DB_PASSWORD = 'Payne1@Max2'
         DB_NAME = 'expense_manager'
         NODE_ENV = 'test'
+        VENV_PATH = './venv'  // Path for virtual environment
     }
 
     stages {
@@ -36,17 +37,32 @@ pipeline {
             }
         }
 
+        stage('Set Up Semgrep') {
+            steps {
+                // Create a virtual environment and install Semgrep within it
+                sh '''
+                    python3 -m venv ${VENV_PATH}
+                    source ${VENV_PATH}/bin/activate
+                    pip install --upgrade pip
+                    pip install semgrep
+                '''
+            }
+        }
+
         stage('Semgrep Security Analysis') {
             steps {
-                // Install Semgrep
-                sh 'pip install semgrep'
-                
-                // Run Semgrep in the backend and frontend directories
+                // Run Semgrep in the backend and frontend directories using the virtual environment
                 dir('backend') {
-                    sh 'semgrep --config auto .'
+                    sh '''
+                        source ${VENV_PATH}/bin/activate
+                        semgrep --config auto .
+                    '''
                 }
                 dir('frontend') {
-                    sh 'semgrep --config auto .'
+                    sh '''
+                        source ${VENV_PATH}/bin/activate
+                        semgrep --config auto .
+                    '''
                 }
             }
         }
@@ -83,6 +99,9 @@ pipeline {
             // Clean up Docker environment to avoid disk space issues
             sh 'docker rmi ${BACKEND_IMAGE}:latest || true'
             sh 'docker rmi ${FRONTEND_IMAGE}:latest || true'
+            
+            // Optionally remove virtual environment
+            sh 'rm -rf ${VENV_PATH}'
         }
         success {
             echo 'Build completed successfully!'
