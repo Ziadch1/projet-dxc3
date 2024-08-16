@@ -1,86 +1,78 @@
 pipeline {
     agent any
-
+    
+    environment {
+        BACKEND_IMAGE = "yassird/expense-manager-backend"  // Name of the backend image
+        FRONTEND_IMAGE = "yassird/expense-manager-frontend"  // Name of the frontend image
+        DB_HOST = 'localhost'
+        DB_USER = 'root'
+        DB_PASSWORD = 'Payne1@Max2'
+        DB_NAME = 'expense_manager'
+        NODE_ENV = 'test'
+    }
+    
     stages {
-        stage('Install Dependencies') {
+        stage('Docker Login') {
             steps {
-                script {
-                    // Clean up any previous virtual environment
-                    sh 'rm -rf venv'
-                    
-                    // Set up a new virtual environment
-                    sh 'python3 -m venv venv'
-                    
-                    // Upgrade pip
-                    sh './venv/bin/pip install --upgrade pip'
-                    
-                    // Install semgrep
-                    sh './venv/bin/pip install semgrep'
+                withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh 'docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD'
+                }
+            }
+        }
+        stage('Install Backend Dependencies') {
+            steps {
+                dir('backend') {
+                    sh 'npm install'
                 }
             }
         }
 
-        stage('Troubleshoot Semgrep') {
+
+        stage('Run Backend Tests') {
             steps {
-                script {
-                    echo 'Checking for semgrep:'
-                    sh 'ls -la ./venv/bin/semgrep'
-                    
-                    echo 'Running ldd on semgrep binary:'
-                    sh 'ldd ./venv/bin/semgrep || true'
-                    
-                    echo 'Checking semgrep shebang:'
-                    sh 'head -n 1 ./venv/bin/semgrep'
-                    
-                    echo 'Running semgrep via python:'
-                    sh './venv/bin/python ./venv/bin/semgrep --config auto .'
+                dir('backend') {
+                    sh 'npm test'
                 }
             }
         }
-
+        
         stage('Build Backend Docker Image') {
-            when {
-                expression {
-                    currentBuild.result == null || currentBuild.result == 'SUCCESS'
+            steps {
+                dir('backend') {
+                    sh 'docker build -t ${BACKEND_IMAGE}:latest .'
                 }
             }
-            steps {
-                echo 'Building Backend Docker Image'
-                // Add your backend Docker build commands here
-            }
         }
-
+        
         stage('Build Frontend Docker Image') {
-            when {
-                expression {
-                    currentBuild.result == null || currentBuild.result == 'SUCCESS'
-                }
-            }
             steps {
-                echo 'Building Frontend Docker Image'
-                // Add your frontend Docker build commands here
+                dir('frontend') {
+                    sh 'docker build -t ${FRONTEND_IMAGE}:latest .'
+                }
             }
         }
-
+        
         stage('Push Docker Images') {
-            when {
-                expression {
-                    currentBuild.result == null || currentBuild.result == 'SUCCESS'
-                }
-            }
             steps {
-                echo 'Pushing Docker Images'
-                // Add your Docker push commands here
+                // Push backend image
+                sh 'docker push ${BACKEND_IMAGE}:latest'
+                // Push frontend image
+                sh 'docker push ${FRONTEND_IMAGE}:latest'
             }
         }
     }
-
+    
     post {
         always {
-            echo 'Cleaning up...'
-            // Clean up Docker images if they exist
-            sh 'docker rmi yassird/expense-manager-backend:latest || true'
-            sh 'docker rmi yassird/expense-manager-frontend:latest || true'
+            // Clean up Docker environment to avoid disk space issues
+            sh 'docker rmi ${BACKEND_IMAGE}:latest || true'
+            sh 'docker rmi ${FRONTEND_IMAGE}:latest || true'
+        }
+        success {
+            echo 'Build completed successfully!'
+        }
+        failure {
+            echo 'Build failed. Please check the logs.'
         }
     }
 }
