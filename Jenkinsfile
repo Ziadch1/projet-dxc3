@@ -51,13 +51,18 @@ pipeline {
             }
         }
 
-        stage('Semgrep Security Analysis') {
+        stage('Troubleshoot Semgrep') {
             steps {
                 dir('backend') {
                     sh '''
                         echo "Checking for semgrep:"
                         ls -la ${VENV_PATH}/bin/semgrep
-                        ${VENV_PATH}/bin/semgrep --config auto .
+                        echo "Running ldd on semgrep binary:"
+                        ldd ${VENV_PATH}/bin/semgrep || true  # Continue even if it fails
+                        echo "Checking semgrep shebang:"
+                        head -n 1 ${VENV_PATH}/bin/semgrep || true
+                        echo "Running semgrep via python:"
+                        ${VENV_PATH}/bin/python ${VENV_PATH}/bin/semgrep --config auto .
                     '''
                 }
             }
