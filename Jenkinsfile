@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        BACKEND_IMAGE = "yassird/expense-manager-backend"  // Name of the backend image
-        FRONTEND_IMAGE = "yassird/expense-manager-frontend"  // Name of the frontend image
+        BACKEND_IMAGE = "yassird/expense-manager-backend"
+        FRONTEND_IMAGE = "yassird/expense-manager-frontend"
         DB_HOST = 'localhost'
         DB_USER = 'root'
         DB_PASSWORD = 'Payne1@Max2'
@@ -39,17 +39,18 @@ pipeline {
 
         stage('Set Up Semgrep') {
             steps {
-                // Create a virtual environment and install Semgrep using bash
-                sh '''
-                    python3 -m venv ${VENV_PATH}
-                    bash -c "source ${VENV_PATH}/bin/activate && pip install --upgrade pip && pip install semgrep"
-                '''
+                dir('backend') {
+                    // Create a virtual environment in the backend directory
+                    sh '''
+                        python3 -m venv ${VENV_PATH}
+                        bash -c "source ${VENV_PATH}/bin/activate && pip install --upgrade pip && pip install semgrep"
+                    '''
+                }
             }
         }
 
         stage('Semgrep Security Analysis') {
             steps {
-                // Run Semgrep in the backend and frontend directories using bash
                 dir('backend') {
                     sh '''
                         bash -c "source ${VENV_PATH}/bin/activate && semgrep --config auto ."
@@ -81,10 +82,7 @@ pipeline {
 
         stage('Push Docker Images') {
             steps {
-                // Push backend image
                 sh 'docker push ${BACKEND_IMAGE}:latest'
-
-                // Push frontend image
                 sh 'docker push ${FRONTEND_IMAGE}:latest'
             }
         }
@@ -92,12 +90,12 @@ pipeline {
 
     post {
         always {
-            // Clean up Docker environment to avoid disk space issues
             sh 'docker rmi ${BACKEND_IMAGE}:latest || true'
             sh 'docker rmi ${FRONTEND_IMAGE}:latest || true'
-            
-            // Optionally remove virtual environment
-            sh 'rm -rf ${VENV_PATH}'
+            // Optionally remove the virtual environment
+            dir('backend') {
+                sh 'rm -rf ${VENV_PATH}'
+            }
         }
         success {
             echo 'Build completed successfully!'
