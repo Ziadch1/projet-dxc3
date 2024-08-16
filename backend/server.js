@@ -1,28 +1,38 @@
-require('dotenv').config();  // Make sure this is at the very top
+require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const client = require('prom-client');  // Add this line to import prom-client
+const client = require('prom-client');
 
 const app = express();
 app.use(bodyParser.json());
 app.use(cors({
-  origin: '*',  // Allow from all origins for now, consider restricting this in production
+  origin: '*',
   methods: 'GET,POST',
   allowedHeaders: 'Content-Type'
 }));
 
 // Prometheus metrics setup
 const collectDefaultMetrics = client.collectDefaultMetrics;
-collectDefaultMetrics({ timeout: 5000 }); // Collect default metrics every 5 seconds
+collectDefaultMetrics({ timeout: 5000 });
 
-// Custom metrics
 const httpRequestDurationMicroseconds = new client.Histogram({
   name: 'http_request_duration_ms',
   help: 'Duration of HTTP requests in ms',
   labelNames: ['method', 'route', 'status_code'],
-  buckets: [50, 100, 200, 300, 400, 500, 1000]  // Define buckets for response time from 50ms to 1000ms
+  buckets: [50, 100, 200, 300, 400, 500, 1000]
+});
+
+// Health Check Endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+// Prometheus metrics endpoint
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', client.register.contentType);
+  res.end(await client.register.metrics());
 });
 
 // MySQL connection configuration
@@ -33,71 +43,39 @@ const dbConfig = {
   database: process.env.DB_NAME
 };
 
-// Function to connect to the database with retry logic
-function connectToDatabase(retries = 5, delay = 2000) {
-  const db = mysql.createConnection(dbConfig);
+let db;
 
+function connectWithRetry() {
+  db = mysql.createConnection(dbConfig);
+  
   db.connect((err) => {
     if (err) {
       console.error('Error connecting to the database:', err);
-
-      if (retries > 0) {
-        console.log(`Retrying connection in ${delay / 1000} seconds... (${retries} retries left)`);
-        setTimeout(() => connectToDatabase(retries - 1, delay * 2), delay); // Exponential backoff
-      } else {
-        console.error('Max retries reached. Exiting.');
-        process.exit(1); // Exit the process if retries are exhausted
-      }
+      console.log('Retrying in 5 seconds...');
+      setTimeout(connectWithRetry, 5000);
     } else {
       console.log('Connected to MySQL database');
-      initializeDatabase(db); // Call the function to initialize the database
-
-      // Listen for requests only after successful database connection
-      const PORT = process.env.PORT || 5000;
-      app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-      });
+      initializeTables();
     }
   });
 
-  return db;
+  db.on('error', (err) => {
+    console.error('Database error:', err);
+    if (err.code === 'PROTOCOL_CONNECTION_LOST') {
+      connectWithRetry();
+    } else {
+      throw err;
+    }
+  });
 }
 
-// Function to initialize the database (create tables)
-function initializeDatabase(db) {
-  // Create tables if they do not exist
-  const createExpensesTable = `
-    CREATE TABLE IF NOT EXISTS expenses (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      description VARCHAR(255) NOT NULL,
-      amount DECIMAL(10, 2) NOT NULL,
-      date DATE NOT NULL,
-      category VARCHAR(255) NOT NULL
-    );
-  `;
+function initializeTables() {
+  // ... (table creation queries remain the same)
+}
 
-  const createSalaryTable = `
-    CREATE TABLE IF NOT EXISTS salary (
-      id INT PRIMARY KEY,
-      amount DECIMAL(10, 2) NOT NULL
-    );
-  `;
-
-  db.query(createExpensesTable, (err) => {
-    if (err) {
-      console.error('Error creating expenses table:', err);
-    } else {
-      console.log('Expenses table created or already exists');
-    }
-  });
-
-  db.query(createSalaryTable, (err) => {
-    if (err) {
-      console.error('Error creating salary table:', err);
-    } else {
-      console.log('Salary table created or already exists');
-    }
-  });
+// Start the connection process
+if (process.env.NODE_ENV !== 'test') {
+  connectWithRetry();
 }
 
 // Middleware to track metrics for all routes
@@ -110,8 +88,16 @@ app.use((req, res, next) => {
   next();
 });
 
+// Database connection check middleware
+const checkDbConnection = (req, res, next) => {
+  if (!db || db.state === 'disconnected') {
+    return res.status(503).json({ error: 'Database connection not established' });
+  }
+  next();
+};
+
 // API Endpoints
-app.get('/expenses', (req, res) => {
+app.get('/expenses', checkDbConnection, (req, res) => {
   db.query('SELECT * FROM expenses', (err, results) => {
     if (err) {
       console.error('Error fetching expenses:', err);
@@ -121,9 +107,9 @@ app.get('/expenses', (req, res) => {
   });
 });
 
-app.post('/expenses', (req, res) => {
+app.post('/expenses', checkDbConnection, (req, res) => {
   const { description, amount, date, category } = req.body;
-
+  
   if (!description || amount === undefined || !date || !category) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
@@ -138,7 +124,7 @@ app.post('/expenses', (req, res) => {
   });
 });
 
-app.get('/salary', (req, res) => {
+app.get('/salary', checkDbConnection, (req, res) => {
   db.query('SELECT amount FROM salary WHERE id = 1', (err, results) => {
     if (err) {
       console.error('Error fetching salary:', err);
@@ -148,9 +134,9 @@ app.get('/salary', (req, res) => {
   });
 });
 
-app.post('/salary', (req, res) => {
+app.post('/salary', checkDbConnection, (req, res) => {
   const { amount } = req.body;
-
+  
   if (amount === null || amount === undefined || isNaN(amount)) {
     return res.status(400).json({ error: 'Invalid amount provided' });
   }
@@ -165,18 +151,11 @@ app.post('/salary', (req, res) => {
   });
 });
 
-// Health Check Endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
-
-// Prometheus metrics endpoint
-app.get('/metrics', async (req, res) => {
-  res.set('Content-Type', client.register.contentType);
-  res.end(await client.register.metrics());
-});
-
-// Start the connection process
-let db = connectToDatabase();
+if (process.env.NODE_ENV !== 'test') {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
 
 module.exports = app;

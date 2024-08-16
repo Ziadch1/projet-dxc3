@@ -6,6 +6,7 @@ jest.mock('mysql2', () => ({
   createConnection: jest.fn(() => ({
     connect: jest.fn((callback) => callback()),
     query: jest.fn(),
+    on: jest.fn(),
   })),
 }));
 
