@@ -41,11 +41,8 @@ pipeline {
             steps {
                 // Create a virtual environment and install Semgrep using bash
                 sh '''
-                    #!/bin/bash
                     python3 -m venv ${VENV_PATH}
-                    source ${VENV_PATH}/bin/activate
-                    pip install --upgrade pip
-                    pip install semgrep
+                    bash -c "source ${VENV_PATH}/bin/activate && pip install --upgrade pip && pip install semgrep"
                 '''
             }
         }
@@ -55,16 +52,12 @@ pipeline {
                 // Run Semgrep in the backend and frontend directories using bash
                 dir('backend') {
                     sh '''
-                        #!/bin/bash
-                        source ${VENV_PATH}/bin/activate
-                        semgrep --config auto .
+                        bash -c "source ${VENV_PATH}/bin/activate && semgrep --config auto ."
                     '''
                 }
                 dir('frontend') {
                     sh '''
-                        #!/bin/bash
-                        source ${VENV_PATH}/bin/activate
-                        semgrep --config auto .
+                        bash -c "source ${VENV_PATH}/bin/activate && semgrep --config auto ."
                     '''
                 }
             }
