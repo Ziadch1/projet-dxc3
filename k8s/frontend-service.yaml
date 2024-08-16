@@ -1,15 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  labels:
-    app: frontend
   name: frontend
 spec:
   type: NodePort
   ports:
-    - name: "http"
-      port: 80
+    - port: 80
       targetPort: 80
-      nodePort: 30000 # Specify the NodePort; this should be in the range 30000-32767
+      nodePort: 30000
   selector:
     app: frontend
