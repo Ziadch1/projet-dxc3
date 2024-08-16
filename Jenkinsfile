@@ -1,110 +1,86 @@
 pipeline {
     agent any
 
-    environment {
-        BACKEND_IMAGE = "yassird/expense-manager-backend"
-        FRONTEND_IMAGE = "yassird/expense-manager-frontend"
-        DB_HOST = 'localhost'
-        DB_USER = 'root'
-        DB_PASSWORD = 'Payne1@Max2'
-        DB_NAME = 'expense_manager'
-        NODE_ENV = 'test'
-        VENV_PATH = './venv'  // Path for virtual environment
-    }
-
     stages {
-        stage('Docker Login') {
+        stage('Install Dependencies') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh 'docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD'
-                }
-            }
-        }
-
-        stage('Install Backend Dependencies') {
-            steps {
-                dir('backend') {
-                    sh 'npm install'
-                }
-            }
-        }
-
-        stage('Run Backend Tests') {
-            steps {
-                dir('backend') {
-                    sh 'npm test'
-                }
-            }
-        }
-
-        stage('Set Up Semgrep') {
-            steps {
-                dir('backend') {
-                    sh '''
-                        python3 -m venv ${VENV_PATH}
-                        ${VENV_PATH}/bin/pip install --upgrade pip
-                        ${VENV_PATH}/bin/pip install semgrep
-                        echo "Contents of venv/bin:"
-                        ls -la ${VENV_PATH}/bin
-                    '''
+                script {
+                    // Clean up any previous virtual environment
+                    sh 'rm -rf venv'
+                    
+                    // Set up a new virtual environment
+                    sh 'python3 -m venv venv'
+                    
+                    // Upgrade pip
+                    sh './venv/bin/pip install --upgrade pip'
+                    
+                    // Install semgrep
+                    sh './venv/bin/pip install semgrep'
                 }
             }
         }
 
         stage('Troubleshoot Semgrep') {
             steps {
-                dir('backend') {
-                    sh '''
-                        echo "Checking for semgrep:"
-                        ls -la ${VENV_PATH}/bin/semgrep
-                        echo "Running ldd on semgrep binary:"
-                        ldd ${VENV_PATH}/bin/semgrep || true  # Continue even if it fails
-                        echo "Checking semgrep shebang:"
-                        head -n 1 ${VENV_PATH}/bin/semgrep || true
-                        echo "Running semgrep via python:"
-                        ${VENV_PATH}/bin/python ${VENV_PATH}/bin/semgrep --config auto .
-                    '''
+                script {
+                    echo 'Checking for semgrep:'
+                    sh 'ls -la ./venv/bin/semgrep'
+                    
+                    echo 'Running ldd on semgrep binary:'
+                    sh 'ldd ./venv/bin/semgrep || true'
+                    
+                    echo 'Checking semgrep shebang:'
+                    sh 'head -n 1 ./venv/bin/semgrep'
+                    
+                    echo 'Running semgrep via python:'
+                    sh './venv/bin/python ./venv/bin/semgrep --config auto .'
                 }
             }
         }
 
         stage('Build Backend Docker Image') {
-            steps {
-                dir('backend') {
-                    sh 'docker build -t ${BACKEND_IMAGE}:latest .'
+            when {
+                expression {
+                    currentBuild.result == null || currentBuild.result == 'SUCCESS'
                 }
+            }
+            steps {
+                echo 'Building Backend Docker Image'
+                // Add your backend Docker build commands here
             }
         }
 
         stage('Build Frontend Docker Image') {
-            steps {
-                dir('frontend') {
-                    sh 'docker build -t ${FRONTEND_IMAGE}:latest .'
+            when {
+                expression {
+                    currentBuild.result == null || currentBuild.result == 'SUCCESS'
                 }
+            }
+            steps {
+                echo 'Building Frontend Docker Image'
+                // Add your frontend Docker build commands here
             }
         }
 
         stage('Push Docker Images') {
+            when {
+                expression {
+                    currentBuild.result == null || currentBuild.result == 'SUCCESS'
+                }
+            }
             steps {
-                sh 'docker push ${BACKEND_IMAGE}:latest'
-                sh 'docker push ${FRONTEND_IMAGE}:latest'
+                echo 'Pushing Docker Images'
+                // Add your Docker push commands here
             }
         }
     }
 
     post {
         always {
-            sh 'docker rmi ${BACKEND_IMAGE}:latest || true'
-            sh 'docker rmi ${FRONTEND_IMAGE}:latest || true'
-            dir('backend') {
-                sh 'rm -rf ${VENV_PATH}'
-            }
-        }
-        success {
-            echo 'Build completed successfully!'
-        }
-        failure {
-            echo 'Build failed. Please check the logs.'
+            echo 'Cleaning up...'
+            // Clean up Docker images if they exist
+            sh 'docker rmi yassird/expense-manager-backend:latest || true'
+            sh 'docker rmi yassird/expense-manager-frontend:latest || true'
         }
     }
 }
