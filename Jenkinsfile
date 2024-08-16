@@ -40,10 +40,10 @@ pipeline {
         stage('Set Up Semgrep') {
             steps {
                 dir('backend') {
-                    // Create a virtual environment in the backend directory
                     sh '''
                         python3 -m venv ${VENV_PATH}
-                        bash -c "source ${VENV_PATH}/bin/activate && pip install --upgrade pip && pip install semgrep"
+                        ${VENV_PATH}/bin/pip install --upgrade pip
+                        ${VENV_PATH}/bin/pip install semgrep
                     '''
                 }
             }
@@ -53,12 +53,7 @@ pipeline {
             steps {
                 dir('backend') {
                     sh '''
-                        bash -c "source ${VENV_PATH}/bin/activate && semgrep --config auto ."
-                    '''
-                }
-                dir('frontend') {
-                    sh '''
-                        bash -c "source ${VENV_PATH}/bin/activate && semgrep --config auto ."
+                        ${VENV_PATH}/bin/semgrep --config auto .
                     '''
                 }
             }
@@ -92,7 +87,6 @@ pipeline {
         always {
             sh 'docker rmi ${BACKEND_IMAGE}:latest || true'
             sh 'docker rmi ${FRONTEND_IMAGE}:latest || true'
-            // Optionally remove the virtual environment
             dir('backend') {
                 sh 'rm -rf ${VENV_PATH}'
             }
