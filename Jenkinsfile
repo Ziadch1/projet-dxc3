@@ -44,6 +44,8 @@ pipeline {
                         python3 -m venv ${VENV_PATH}
                         ${VENV_PATH}/bin/pip install --upgrade pip
                         ${VENV_PATH}/bin/pip install semgrep
+                        echo "Contents of venv/bin:"
+                        ls -la ${VENV_PATH}/bin
                     '''
                 }
             }
@@ -53,6 +55,8 @@ pipeline {
             steps {
                 dir('backend') {
                     sh '''
+                        echo "Checking for semgrep:"
+                        ls -la ${VENV_PATH}/bin/semgrep
                         ${VENV_PATH}/bin/semgrep --config auto .
                     '''
                 }
