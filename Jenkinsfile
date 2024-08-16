@@ -38,13 +38,10 @@ pipeline {
 
         stage('Run Semgrep Analysis') {
             steps {
-                sh 'pip install semgrep'
-                dir('backend') {
-                    sh 'semgrep scan --config auto'
-                }
-                dir('frontend') {
-                    sh 'semgrep scan --config auto'
-                }
+                sh '''
+                    docker run --rm -v "${WORKSPACE}:/src" returntocorp/semgrep semgrep scan --config auto /src/backend
+                    docker run --rm -v "${WORKSPACE}:/src" returntocorp/semgrep semgrep scan --config auto /src/frontend
+                '''
             }
         }
         
