@@ -6,7 +6,7 @@ function SalaryInput({ onSalaryChange }) {
   useEffect(() => {
     const fetchSalary = async () => {
       try {
-        const response = await fetch(`http://192.168.59.111:30001/salary`);
+        const response = await fetch(`http://192.168.59.112:30001/salary`);
         const amount = await response.json();
         setSalary(amount);
         onSalaryChange(amount);
@@ -24,7 +24,7 @@ function SalaryInput({ onSalaryChange }) {
     onSalaryChange(newSalary);
 
     try {
-      await fetch(`http://192.168.59.111:30001/salary`, {
+      await fetch(`http://192.168.59.112:30001/salary`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
