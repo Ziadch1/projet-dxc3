@@ -24,17 +24,6 @@ const httpRequestDurationMicroseconds = new client.Histogram({
   buckets: [50, 100, 200, 300, 400, 500, 1000]
 });
 
-// Health Check Endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
-
-// Prometheus metrics endpoint
-app.get('/metrics', async (req, res) => {
-  res.set('Content-Type', client.register.contentType);
-  res.end(await client.register.metrics());
-});
-
 // MySQL connection configuration
 const dbConfig = {
   host: process.env.DB_HOST,
@@ -70,13 +59,39 @@ function connectWithRetry() {
 }
 
 function initializeTables() {
-  // ... (table creation queries remain the same)
+  const createExpensesTable = `
+    CREATE TABLE IF NOT EXISTS expenses (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      description VARCHAR(255) NOT NULL,
+      amount DECIMAL(10, 2) NOT NULL,
+      date DATE NOT NULL,
+      category VARCHAR(255) NOT NULL
+    );
+  `;
+  const createSalaryTable = `
+    CREATE TABLE IF NOT EXISTS salary (
+      id INT PRIMARY KEY,
+      amount DECIMAL(10, 2) NOT NULL
+    );
+  `;
+  db.query(createExpensesTable, (err) => {
+    if (err) {
+      console.error('Error creating expenses table:', err);
+    } else {
+      console.log('Expenses table created or already exists');
+    }
+  });
+  db.query(createSalaryTable, (err) => {
+    if (err) {
+      console.error('Error creating salary table:', err);
+    } else {
+      console.log('Salary table created or already exists');
+    }
+  });
 }
 
 // Start the connection process
-if (process.env.NODE_ENV !== 'test') {
-  connectWithRetry();
-}
+connectWithRetry();
 
 // Middleware to track metrics for all routes
 app.use((req, res, next) => {
@@ -149,6 +164,17 @@ app.post('/salary', checkDbConnection, (req, res) => {
     }
     res.status(201).json({ amount });
   });
+});
+
+// Health Check Endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+// Prometheus metrics endpoint
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', client.register.contentType);
+  res.end(await client.register.metrics());
 });
 
 if (process.env.NODE_ENV !== 'test') {
