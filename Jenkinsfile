@@ -2,8 +2,8 @@ pipeline {
     agent any
     
     environment {
-        BACKEND_IMAGE = "yassird/expense-manager-backend"  // Name of the backend image
-        FRONTEND_IMAGE = "yassird/expense-manager-frontend"  // Name of the frontend image
+        BACKEND_IMAGE = "yassird/expense-manager-backend"
+        FRONTEND_IMAGE = "yassird/expense-manager-frontend"
         DB_HOST = 'localhost'
         DB_USER = 'root'
         DB_PASSWORD = 'Payne1@Max2'
@@ -19,6 +19,7 @@ pipeline {
                 }
             }
         }
+
         stage('Install Backend Dependencies') {
             steps {
                 dir('backend') {
@@ -27,11 +28,22 @@ pipeline {
             }
         }
 
-
         stage('Run Backend Tests') {
             steps {
                 dir('backend') {
                     sh 'npm test'
+                }
+            }
+        }
+
+        stage('Run Semgrep Analysis') {
+            steps {
+                sh 'pip install semgrep'
+                dir('backend') {
+                    sh 'semgrep scan --config auto'
+                }
+                dir('frontend') {
+                    sh 'semgrep scan --config auto'
                 }
             }
         }
@@ -54,9 +66,7 @@ pipeline {
         
         stage('Push Docker Images') {
             steps {
-                // Push backend image
                 sh 'docker push ${BACKEND_IMAGE}:latest'
-                // Push frontend image
                 sh 'docker push ${FRONTEND_IMAGE}:latest'
             }
         }
@@ -64,7 +74,6 @@ pipeline {
     
     post {
         always {
-            // Clean up Docker environment to avoid disk space issues
             sh 'docker rmi ${BACKEND_IMAGE}:latest || true'
             sh 'docker rmi ${FRONTEND_IMAGE}:latest || true'
         }
