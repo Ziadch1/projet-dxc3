@@ -4,11 +4,7 @@ pipeline {
     environment {
         BACKEND_IMAGE = "yassird/expense-manager-backend"
         FRONTEND_IMAGE = "yassird/expense-manager-frontend"
-        DB_HOST = 'localhost'
-        DB_USER = 'root'
-        DB_PASSWORD = 'Payne1@Max2'
-        DB_NAME = 'expense_manager'
-        NODE_ENV = 'test'
+        BUILD_TAG = "${BUILD_ID}" // Use the Jenkins build ID as the tag
     }
     
     stages {
@@ -48,7 +44,7 @@ pipeline {
         stage('Build Backend Docker Image') {
             steps {
                 dir('backend') {
-                    sh 'docker build -t ${BACKEND_IMAGE}:latest .'
+                    sh 'docker build -t ${BACKEND_IMAGE}:${BUILD_TAG} .'
                 }
             }
         }
@@ -56,23 +52,23 @@ pipeline {
         stage('Build Frontend Docker Image') {
             steps {
                 dir('frontend') {
-                    sh 'docker build -t ${FRONTEND_IMAGE}:latest .'
+                    sh 'docker build -t ${FRONTEND_IMAGE}:${BUILD_TAG} .'
                 }
             }
         }
         
         stage('Push Docker Images') {
             steps {
-                sh 'docker push ${BACKEND_IMAGE}:latest'
-                sh 'docker push ${FRONTEND_IMAGE}:latest'
+                sh 'docker push ${BACKEND_IMAGE}:${BUILD_TAG}'
+                sh 'docker push ${FRONTEND_IMAGE}:${BUILD_TAG}'
             }
         }
     }
     
     post {
         always {
-            sh 'docker rmi ${BACKEND_IMAGE}:latest || true'
-            sh 'docker rmi ${FRONTEND_IMAGE}:latest || true'
+            sh 'docker rmi ${BACKEND_IMAGE}:${BUILD_TAG} || true'
+            sh 'docker rmi ${FRONTEND_IMAGE}:${BUILD_TAG} || true'
         }
         success {
             echo 'Build completed successfully!'
