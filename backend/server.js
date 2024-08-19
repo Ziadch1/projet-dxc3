@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const client = require('prom-client');
 
+//testing comment
 const app = express();
 app.use(bodyParser.json());
 app.use(cors({
@@ -23,6 +24,14 @@ const httpRequestDurationMicroseconds = new client.Histogram({
   labelNames: ['method', 'route', 'status_code'],
   buckets: [50, 100, 200, 300, 400, 500, 1000]
 });
+
+const appUpMetric = new client.Gauge({
+  name: 'app_up',
+  help: 'Indicates if the app is up (1) or down (0)'
+});
+
+// Set the initial state of the app to up
+appUpMetric.set(1);
 
 // MySQL connection configuration
 const dbConfig = {
@@ -166,6 +175,12 @@ app.post('/salary', checkDbConnection, (req, res) => {
   });
 });
 
+// Route to simulate a failure
+app.get('/fail', (req, res) => {
+  appUpMetric.set(0);  // Set app_up to 0 to simulate a failure
+  res.status(200).json({ status: 'app_down', message: 'The app is now marked as down' });
+});
+
 // Health Check Endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
@@ -177,6 +192,7 @@ app.get('/metrics', async (req, res) => {
   res.end(await client.register.metrics());
 });
 
+// Start the app
 if (process.env.NODE_ENV !== 'test') {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => {
