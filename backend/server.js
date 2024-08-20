@@ -15,7 +15,7 @@ app.use(cors({
 }));
 
 // Prometheus metrics setup
-const collectDefaultMetrics = client.collectDefaultMetrics;
+          const collectDefaultMetrics = client.collectDefaultMetrics;
 collectDefaultMetrics({ timeout: 5000 });
 
 const httpRequestDurationMicroseconds = new client.Histogram({

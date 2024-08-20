@@ -1,0 +1,28 @@
+{
+  "name": "expense-manager-test",
+  "version": "1.0.0",
+  "description": "An expense management application",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "prepare": "husky install"
+  },
+  "lint-staged": {
+    "front/**/*.js": [
+      "prettier --write"
+    ],
+    "back/**/*.js": [
+      "prettier --write"
+    ]
+  },
+  "dependencies": {
+    "express": "^4.17.1"
+  },
+  "devDependencies": {
+    "husky": "^8.0.0",
+    "lint-staged": "^15.2.9",
+    "prettier": "^3.3.3"
+  },
+  "author": "Ziad",
+  "license": "MIT"
+}
